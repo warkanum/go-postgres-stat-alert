@@ -48,6 +48,16 @@ type AlertRule struct {
 	To            string      `yaml:"to"`
 	Channels      []string    `yaml:"channels,omitempty"`
 	ExecuteAction string      `yaml:"execute_action,omitempty"` // Optional action to execute on alert
+	AlertHours    *AlertHours `yaml:"alert_hours,omitempty"`    // Optional time range for alerts
+
+}
+
+// AlertHours defines time range when alerts should be sent
+type AlertHours struct {
+	Start    string   `yaml:"start"`              // Start time in HH:MM format (24-hour)
+	End      string   `yaml:"end"`                // End time in HH:MM format (24-hour)
+	Timezone string   `yaml:"timezone,omitempty"` // Timezone (e.g., "UTC", "America/New_York")
+	Days     []string `yaml:"days,omitempty"`     // Days of week (optional: "mon", "tue", etc.)
 }
 
 // AlertsConfig holds all alert configurations

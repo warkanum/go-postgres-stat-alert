@@ -60,6 +60,10 @@ func (m *Monitor) checkAlertRules(queryConfig QueryConfig, columns []string, val
 		value := values[0]
 		if m.evaluateCondition(value, rule.Condition, rule.Value) {
 			m.logger.Printf("Alert triggered for query %s: %s", queryConfig.Name, rule.Message)
+			if !m.isWithinAlertHours(rule) {
+				m.logger.Printf("Alert for query %s suppressed due to time restrictions", queryConfig.Name)
+				continue
+			}
 			m.sendAlerts(queryConfig.Name, rule)
 
 			// Execute action if specified
@@ -190,4 +194,73 @@ func (m *Monitor) executeAction(queryName string, rule AlertRule) {
 	if stdout.Len() > 0 {
 		m.logger.Printf("Action output: %s", strings.TrimSpace(stdout.String()))
 	}
+}
+
+// isWithinAlertHours checks if current time is within allowed alert hours
+func (m *Monitor) isWithinAlertHours(rule AlertRule) bool {
+	// If no alert hours specified, always allow alerts
+	if rule.AlertHours == nil {
+		return true
+	}
+
+	alertHours := rule.AlertHours
+
+	// Parse timezone
+	var loc *time.Location
+	var err error
+	if alertHours.Timezone != "" {
+		loc, err = time.LoadLocation(alertHours.Timezone)
+		if err != nil {
+			m.logger.Printf("Invalid timezone '%s', using UTC: %v", alertHours.Timezone, err)
+			loc = time.UTC
+		}
+	} else {
+		loc = time.Local // Use system local time if not specified
+	}
+
+	now := time.Now().In(loc)
+
+	// Check day of week if specified
+	if len(alertHours.Days) > 0 {
+		dayOfWeek := strings.ToLower(now.Weekday().String()[:3]) // "mon", "tue", etc.
+		dayAllowed := false
+		for _, allowedDay := range alertHours.Days {
+			if strings.ToLower(allowedDay) == dayOfWeek {
+				dayAllowed = true
+				break
+			}
+		}
+		if !dayAllowed {
+			return false
+		}
+	}
+
+	// Parse start time
+	startTime, err := time.ParseInLocation("15:04", alertHours.Start, loc)
+	if err != nil {
+		m.logger.Printf("Invalid start time format '%s', expected HH:MM: %v", alertHours.Start, err)
+		return true // Allow alert if time format is invalid
+	}
+
+	// Parse end time
+	endTime, err := time.ParseInLocation("15:04", alertHours.End, loc)
+	if err != nil {
+		m.logger.Printf("Invalid end time format '%s', expected HH:MM: %v", alertHours.End, err)
+		return true // Allow alert if time format is invalid
+	}
+
+	// Set dates to today for comparison
+	today := now.Format("2006-01-02")
+	startTime, _ = time.ParseInLocation("2006-01-02 15:04", today+" "+alertHours.Start, loc)
+	endTime, _ = time.ParseInLocation("2006-01-02 15:04", today+" "+alertHours.End, loc)
+
+	// Handle overnight ranges (e.g., 22:00 to 06:00)
+	if endTime.Before(startTime) {
+		// If end time is before start time, it spans midnight
+		// Check if current time is after start OR before end
+		return now.After(startTime) || now.Before(endTime)
+	}
+
+	// Normal range (e.g., 08:00 to 21:00)
+	return now.After(startTime) && now.Before(endTime)
 }

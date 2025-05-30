@@ -74,6 +74,11 @@ queries:
         to: "admin@company.com"
         channels: ["telegram", "discord"]  # Only send to these channels
         execute_action: "/scripts/restart_connection_pooler.sh"  # Restart connection pooler
+        alert_hours:
+          start: "06:00"
+          end: "23:00"
+          # No days specified = all days of week
+
 
   # Monitor database size
   - name: "database_size"
@@ -100,6 +105,11 @@ queries:
         to: "dev-team@company.com"
         channels: ["telegram"]  # Only Telegram for this alert
         execute_action: "/scripts/log_slow_queries.py --threshold 300"  # Log slow queries to file
+        alert_hours:
+          start: "06:00"
+          end: "18:00"
+          timezone: "Africa/Johannesburg"
+          days: ["mon", "tue", "wed", "thu", "fri"]  # Weekdays only
 
   # Monitor failed connections
   - name: "connection_failures"
