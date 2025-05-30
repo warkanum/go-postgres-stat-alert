@@ -1,0 +1,123 @@
+version: "3.8"
+
+services:
+  postgres-stat-alert:
+    build: .
+    container_name: postgres-stat-alert
+    restart: unless-stopped
+
+    # Environment variables (override config file settings if needed)
+    environment:
+      - TZ=UTC
+      # Database connection (optional - can be set in config file)
+      # - DB_HOST=postgres
+      # - DB_PORT=5432
+      # - DB_USER=monitor_user
+      # - DB_PASSWORD=monitor_password
+      # - DB_NAME=production_db
+
+    # Mount configuration and logs
+    volumes:
+      - ./config.yaml:/etc/postgres-stat-alert/config.yaml:ro
+      - ./logs:/var/log/postgres-stat-alert
+      - ./scripts:/scripts:ro
+
+    # Network mode for accessing local PostgreSQL
+    # Change to 'host' if monitoring local database
+    network_mode: bridge
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+        reservations:
+          memory: 128M
+          cpus: "0.1"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "postgres-stat-alert"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    # Run as non-root user
+    user: "1001:1001"
+
+  # Optional: PostgreSQL database for testing
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-test
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: testdb
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+
+    ports:
+      - "5432:5432"
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Grafana for monitoring dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: unless-stopped
+
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+# Network configuration
+networks:
+  default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

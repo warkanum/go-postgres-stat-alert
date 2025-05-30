@@ -1,0 +1,51 @@
+[Unit]
+Description=PostgreSQL Database Monitor and Stat Tool
+Documentation=https://github.com/warkanum/go-postgres-stat-alert
+After=network.target
+Requires=network.target
+
+[Service]
+Type=simple
+User=postgres-stat-alert
+Group=postgres-stat-alert
+ExecStart=/usr/local/bin/postgres-stat-alert /etc/postgres-stat-alert/config.yaml
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/postgres-stat-alert /tmp
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+# Environment
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/postgres-stat-alert
+
+# Working directory
+WorkingDirectory=/var/lib/postgres-stat-alert
+
+# Standard output/error
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=postgres-stat-alert
+
+# Process management
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+Alias=pgalert.service

@@ -1,0 +1,38 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Monitor",
+            "type": "go",
+            "request": "launch",
+            "windows": {
+                "output": "${workspaceFolder}/bin/go-postgres-stat.exe"
+            },
+            "output": "${workspaceFolder}/bin/go-postgres-stat",
+            "cwd": "${workspaceFolder}/bin",
+            "mode": "debug",
+            //"program": "${fileDirname}",
+            "program": "${workspaceFolder}/cmd/postgres-stat-alert",
+            "env": {
+                "GONOSUMDB": "*",
+                "GIT_USERNAME": "btgit"
+            },
+            "args": [
+                "${workspaceFolder}/configs/${input:configfile}.yaml",
+                ""
+            ],
+            "showLog": true
+        }
+    ],
+    "inputs": [
+        {
+            "id": "configfile",
+            "type": "pickString",
+            "default": "simplicity_demo",
+            "options": [
+                "simp_demo_zd",
+            ],
+            "description": "Select an Config File"
+        }
+    ]
+}

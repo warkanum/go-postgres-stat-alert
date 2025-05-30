@@ -1,0 +1,260 @@
+# Instance name for identification in logs and alerts
+instance: "production-db-01"
+
+# Database connection configuration
+database:
+  host: "localhost"
+  port: 5432
+  username: "postgres"
+  password: "your_password"
+  database: "your_database"
+  sslmode: "disable"  # Options: disable, require, verify-ca, verify-full
+
+# Logging configuration
+logging:
+  file_path: "/var/log/db-monitor.log"
+
+# Alert configurations
+alerts:
+  # Generic webhook alert
+  webhook:
+    enabled: true
+    url: "https://your-alert-service.com/webhook"
+    interval: "5m"  # Minimum time between webhook alerts for the same query
+  
+  # Telegram bot alerts
+  telegram:
+    enabled: true
+    bot_token: "YOUR_BOT_TOKEN"  # Get from @BotFather
+    chat_id: "YOUR_CHAT_ID"      # Your chat ID or group chat ID
+    interval: "1m"               # Minimum time between Telegram alerts (rate limit friendly)
+  
+  # Discord webhook alerts
+  discord:
+    enabled: true
+    webhook_url: "https://discord.com/api/webhooks/YOUR_WEBHOOK_URL"
+    interval: "30s"              # Discord has generous rate limits
+  
+  # Microsoft Teams webhook alerts
+  teams:
+    enabled: false
+    webhook_url: "https://outlook.office.com/webhook/YOUR_TEAMS_WEBHOOK_URL"
+    interval: "2m"               # Conservative interval for Teams
+
+  # SMTP Email alerts
+  email:
+    enabled: true
+    smtp_host: "smtp.gmail.com"          # SMTP server hostname
+    smtp_port: 587                       # SMTP port (587 for TLS, 465 for SSL, 25 for plain)
+    username: "alerts@company.com"       # SMTP username
+    password: "app_password_here"        # SMTP password or app password
+    from_email: "alerts@company.com"     # From email address
+    from_name: "PostgreSQL Monitor"      # From display name
+    tls: true                           # Use TLS encryption
+    interval: "3m"                      # Minimum time between email alerts
+
+# Queries to monitor
+queries:
+  # Monitor connection count
+  - name: "connection_count"
+    sql: "SELECT count(*) FROM pg_stat_activity WHERE state = 'active'"
+    interval: "30s"  # Check every 30 seconds
+    alert_rules:
+      - condition: "gt"
+        value: 100
+        message: "High number of active connections detected"
+        category: "performance"
+        to: "admin@company.com"
+        channels: ["telegram", "discord"]  # Only send to these channels
+        execute_action: "/scripts/restart_connection_pooler.sh"  # Restart connection pooler
+
+  # Monitor database size
+  - name: "database_size"
+    sql: "SELECT pg_size_pretty(pg_database_size(current_database())) as size, pg_database_size(current_database()) as size_bytes"
+    interval: "5m"  # Check every 5 minutes
+    alert_rules:
+      - condition: "gt"
+        value: 10737418240  # 10GB in bytes
+        message: "Database size exceeds 10GB"
+        category: "storage"
+        to: "dba@company.com"
+        channels: ["email", "teams"]  # Send via email and Teams
+        # No channels specified = send to all enabled channels
+
+  # Monitor long running queries
+  - name: "long_running_queries"
+    sql: "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND now() - query_start > interval '5 minutes'"
+    interval: "1m"
+    alert_rules:
+      - condition: "gt"
+        value: 0
+        message: "Long running queries detected (> 5 minutes)"
+        category: "performance"
+        to: "dev-team@company.com"
+        channels: ["telegram"]  # Only Telegram for this alert
+        execute_action: "/scripts/log_slow_queries.py --threshold 300"  # Log slow queries to file
+
+  # Monitor failed connections
+  - name: "connection_failures"
+    sql: |
+      SELECT count(*) 
+      FROM pg_stat_database 
+      WHERE datname = current_database() 
+      AND deadlocks > 0
+    interval: "2m"
+    alert_rules:
+      - condition: "gt"
+        value: 5
+        message: "Multiple deadlocks detected in database"
+        category: "security"
+        to: "security@company.com"
+        channels: ["discord", "teams"]
+
+  # Monitor table bloat (example for a specific table)
+  - name: "table_bloat"
+    sql: |
+      SELECT schemaname, tablename, 
+             round((case when otta=0 then 0.0 else sml.relpages::float/otta end)::numeric,1) AS tbloat
+      FROM (
+        SELECT schemaname, tablename, cc.relpages, cc.otta,
+               COALESCE(c2.relname,'?') AS iname, COALESCE(c2.relpages,0) AS ipages,
+               COALESCE(ceil((c2.reltuples/3)::numeric),0) AS iotta
+        FROM (
+          SELECT ma,bs,schemaname,tablename,
+                 (datawidth+(hdr+ma-(case when hdr%ma=0 THEN ma ELSE hdr%ma END)))::numeric AS datahdr,
+                 (maxfracsum*(nullhdr+ma-(case when nullhdr%ma=0 THEN ma ELSE nullhdr%ma END))) AS nullhdr2
+          FROM pg_stats s2
+          JOIN (
+            SELECT schemaname, tablename, hdr, ma, bs,
+                   SUM((1-null_frac)*avg_width) AS datawidth,
+                   MAX(null_frac) AS maxfracsum,
+                   hdr+(
+                     SELECT 1+count(*)/8
+                     FROM pg_stats s2
+                     WHERE null_frac<>0 AND s2.schemaname = s.schemaname AND s2.tablename = s.tablename
+                   ) AS nullhdr
+            FROM pg_stats s, (
+              SELECT (SELECT current_setting('block_size')::numeric) AS bs,
+                     CASE WHEN substring(v,12,3) IN ('8.0','8.1','8.2') THEN 27 ELSE 23 END AS hdr,
+                     CASE WHEN v ~ 'mingw32' THEN 8 ELSE 4 END AS ma
+              FROM (SELECT version() AS v) AS foo
+            ) AS constants
+            GROUP BY schemaname, tablename, hdr, ma, bs
+          ) AS foo ON s2.schemaname = foo.schemaname AND s2.tablename = foo.tablename
+        ) AS rs
+        JOIN pg_class cc ON cc.relname = rs.tablename
+        JOIN pg_namespace nn ON cc.relnamespace = nn.oid AND nn.nspname = rs.schemaname AND nn.nspname <> 'information_schema'
+        LEFT JOIN pg_index i ON indrelid = cc.oid
+        LEFT JOIN pg_class c2 ON c2.oid = i.indexrelid
+      ) AS sml
+      WHERE sml.relpages - otta > 128
+      ORDER BY tbloat DESC
+      LIMIT 5
+    interval: "1h"
+    alert_rules:
+      - condition: "gt"
+        value: 2.0
+        message: "High table bloat detected - maintenance required"
+        category: "maintenance"
+        to: "dba@company.com"
+        channels: ["webhook", "teams"]
+
+  # Monitor disk space usage
+  - name: "disk_usage"
+    sql: |
+      SELECT 
+        setting AS data_directory,
+        pg_size_pretty(pg_database_size(current_database())) as db_size,
+        (SELECT setting::int FROM pg_settings WHERE name = 'shared_buffers') as shared_buffers
+      FROM pg_settings WHERE name = 'data_directory'
+    interval: "10m"
+    alert_rules:
+      - condition: "gt"
+        value: 50000000000  # 50GB
+        message: "Database approaching storage limits"
+        category: "storage"
+        to: "infrastructure@company.com"
+        execute_action: "/scripts/cleanup_old_backups.sh"  # Clean up old backup files
+
+  # Monitor replication lag (for streaming replication)
+  - name: "replication_lag"
+    sql: |
+      SELECT CASE 
+        WHEN pg_is_in_recovery() THEN 
+          EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))
+        ELSE 0 
+      END as lag_seconds
+    interval: "30s"
+    alert_rules:
+      - condition: "gt"
+        value: 60  # 60 seconds lag
+        message: "Replication lag exceeds 1 minute"
+        category: "replication"
+        to: "dba@company.com"
+        channels: ["telegram", "discord"]
+
+  # Monitor slow queries
+  - name: "slow_queries"
+    sql: |
+      SELECT count(*) as slow_query_count
+      FROM pg_stat_statements 
+      WHERE mean_exec_time > 1000  -- queries taking more than 1 second on average
+      AND calls > 10  -- that have been called more than 10 times
+    interval: "5m"
+    alert_rules:
+      - condition: "gt"
+        value: 5
+        message: "Multiple slow queries detected - performance review needed"
+        category: "performance"
+        to: "dev-team@company.com"
+        channels: ["discord"]
+
+  # Monitor cache hit ratio
+  - name: "cache_hit_ratio"
+    sql: |
+      SELECT 
+        round(
+          (sum(heap_blks_hit) / (sum(heap_blks_hit) + sum(heap_blks_read))) * 100, 2
+        ) as cache_hit_ratio
+      FROM pg_statio_user_tables
+      WHERE (heap_blks_hit + heap_blks_read) > 0
+    interval: "2m"
+    alert_rules:
+      - condition: "lt"
+        value: 95  # Less than 95% cache hit ratio
+        message: "Cache hit ratio is low - consider increasing shared_buffers"
+        category: "performance"
+        to: "dba@company.com"
+        execute_action: "python3 /scripts/send_slack_notification.py --channel ops --urgent"  # Send Slack notification
+
+  # Critical system monitoring with email escalation
+  - name: "system_health"
+    sql: |
+      SELECT 
+        (SELECT count(*) FROM pg_stat_activity WHERE state = 'active') as active_connections,
+        (SELECT count(*) FROM pg_stat_replication) as replica_count
+    interval: "1m"
+    alert_rules:
+      - condition: "eq"
+        value: 0  # No replicas
+        message: "CRITICAL: No database replicas detected - data loss risk!"
+        category: "critical"
+        to: "emergency@company.com"
+        channels: ["email", "telegram", "teams"]  # Multi-channel critical alert
+        execute_action: "/emergency/check_replication_status.sh --alert-management"
+
+  # Example: Critical system failure with emergency action
+  - name: "system_critical"
+    sql: |
+      SELECT count(*) 
+      FROM pg_stat_activity 
+      WHERE state = 'active' AND application_name = 'critical_service'
+    interval: "30s"
+    alert_rules:
+      - condition: "eq"
+        value: 0
+        message: "CRITICAL: No active critical service connections!"
+        category: "critical"
+        to: "emergency@company.com"
+        channels: ["telegram", "teams", "webhook"]
+        execute_action: "/emergency/restart_critical_service.sh --force --notify-oncall"  # Emergency restart
