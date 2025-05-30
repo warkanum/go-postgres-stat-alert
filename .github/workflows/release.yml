@@ -16,7 +16,7 @@ permissions:
   
 jobs:
   build-and-release:
-    runs-on: ubuntu-latest, self-hosted 
+    runs-on: self-hosted 
     
     steps:
     - name: Checkout code
