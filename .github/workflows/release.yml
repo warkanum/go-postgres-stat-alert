@@ -67,10 +67,10 @@ jobs:
           fi
           
           echo "Building for $OS/$ARCH..."
-          
+
           # Build the binary
-          GOOS=$OS GOARCH=$ARCH go build \
-            -ldflags="-s -w -X 'main.version=${{ steps.tag.outputs.tag }}'" \
+          CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build \
+            -ldflags="-s -w -X 'main.version=${{ steps.tag.outputs.tag }}' -static" \
             -o "dist/${BINARY_NAME}" \
             ./cmd/postgres-stat-alert
           
