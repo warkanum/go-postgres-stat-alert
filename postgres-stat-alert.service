@@ -16,14 +16,14 @@ StartLimitInterval=60
 StartLimitBurst=3
 
 # Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/postgres-stat-alert /tmp
-ProtectKernelTunables=true
-ProtectKernelModules=true
-ProtectControlGroups=true
+#NoNewPrivileges=true
+#PrivateTmp=true
+#ProtectSystem=strict
+#ProtectHome=true
+#ReadWritePaths=/var/log/postgres-stat-alert /tmp
+#ProtectKernelTunables=true
+#ProtectKernelModules=true
+#ProtectControlGroups=true
 
 # Resource limits
 LimitNOFILE=65536
@@ -31,7 +31,7 @@ LimitNPROC=4096
 
 # Environment
 Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=HOME=/var/lib/postgres-stat-alert
+#Environment=HOME=/var/lib/postgres-stat-alert
 
 # Working directory
 WorkingDirectory=/var/lib/postgres-stat-alert
