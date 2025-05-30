@@ -70,7 +70,7 @@ jobs:
 
           # Build the binary
           CGO_ENABLED=0 GOOS=$OS GOARCH=$ARCH go build \
-            -ldflags="-s -w -X 'main.version=${{ steps.tag.outputs.tag }}' -static" \
+            -ldflags="-s -w '-static' -X 'main.version=${{ steps.tag.outputs.tag }}' " \
             -o "dist/${BINARY_NAME}" \
             ./cmd/postgres-stat-alert
           
