@@ -26,8 +26,12 @@ func loadConfig(configPath string) (*Config, error) {
 
 // connectToDatabase establishes a connection to PostgreSQL
 func connectToDatabase(dbConfig DatabaseConfig) (*sql.DB, error) {
+	var sslstr = "disable"
+	if dbConfig.SSLMode != "" {
+		sslstr = dbConfig.SSLMode
+	}
 	connStr := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		dbConfig.Host, dbConfig.Port, dbConfig.Username, dbConfig.Password, dbConfig.Database, dbConfig.SSLMode)
+		dbConfig.Host, dbConfig.Port, dbConfig.Username, dbConfig.Password, dbConfig.Database, sslstr)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

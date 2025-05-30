@@ -12,7 +12,7 @@ import (
 var version = "dev"
 
 func main() {
-	fmt.Println("Postgres Stat Alert - Monitoring Service")
+	fmt.Println("🤖 Postgres Stat Alert - Monitoring Service")
 	fmt.Println("Version: ", version)
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <config-file-path>")
