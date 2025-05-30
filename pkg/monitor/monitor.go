@@ -16,7 +16,7 @@ func NewMonitor(configPath string) (*Monitor, error) {
 	}
 
 	// Setup logging
-	logFile, err := os.OpenFile(config.Logging.FilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logFile, err := os.OpenFile(config.Logging.FilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -62,19 +62,30 @@ func (m *Monitor) monitorQuery(queryConfig QueryConfig) {
 	for {
 		select {
 		case <-ticker.C:
-			m.executeAndCheck(queryConfig)
+			err := m.executeAndCheck(queryConfig)
+			if err != nil {
+				//If an error occurs, send alerts for all alert rules
+				for r := range queryConfig.AlertRules {
+					rule := queryConfig.AlertRules[r]
+					rule.Message = fmt.Sprintf("Error executing query %s: %v", queryConfig.Name, err)
+					rule.Category = "error"
+					rule.Value = err.Error()
+
+					m.sendAlerts(queryConfig.Name, rule)
+				}
+			}
 		}
 	}
 }
 
 // executeAndCheck executes a query and checks alert rules
-func (m *Monitor) executeAndCheck(queryConfig QueryConfig) {
+func (m *Monitor) executeAndCheck(queryConfig QueryConfig) error {
 	m.logger.Printf("Executing query: %s", queryConfig.Name)
 
 	rows, err := m.db.Query(queryConfig.SQL)
 	if err != nil {
 		m.logger.Printf("Error executing query %s: %v", queryConfig.Name, err)
-		return
+		return fmt.Errorf("failed to execute query %s: %w", queryConfig.Name, err)
 	}
 	defer rows.Close()
 
@@ -82,7 +93,7 @@ func (m *Monitor) executeAndCheck(queryConfig QueryConfig) {
 	columns, err := rows.Columns()
 	if err != nil {
 		m.logger.Printf("Error getting columns for query %s: %v", queryConfig.Name, err)
-		return
+		return fmt.Errorf("failed to get columns for query %s: %w", queryConfig.Name, err)
 	}
 
 	// Process results
@@ -107,7 +118,9 @@ func (m *Monitor) executeAndCheck(queryConfig QueryConfig) {
 
 	if err = rows.Err(); err != nil {
 		m.logger.Printf("Error iterating rows for query %s: %v", queryConfig.Name, err)
+		return fmt.Errorf("error iterating rows for query %s: %w", queryConfig.Name, err)
 	}
+	return nil
 }
 
 // evaluateCondition checks if a condition is met

@@ -53,6 +53,13 @@ alerts:
     tls: true                           # Use TLS encryption
     interval: "3m"                      # Minimum time between email alerts
 
+  # WhatsApp Business API alerts
+  whatsapp:
+    enabled: true
+    access_token: "YOUR_WHATSAPP_ACCESS_TOKEN"     # Meta Business API access token
+    phone_number_id: "YOUR_PHONE_NUMBER_ID"       # WhatsApp Business phone number ID
+    to_number: "+1234567890"                      # Recipient phone number (with country code)
+    interval: "2m"     
 # Queries to monitor
 queries:
   # Monitor connection count

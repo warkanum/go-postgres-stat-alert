@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,6 +20,13 @@ func loadConfig(configPath string) (*Config, error) {
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
 		return nil, err
+	}
+
+	if config.Alerts.Email.Interval == 0 {
+		config.Alerts.Email.Interval = 3 * time.Minute
+	}
+	if config.Alerts.WhatsApp.Interval == 0 {
+		config.Alerts.WhatsApp.Interval = 2 * time.Minute
 	}
 
 	return &config, nil

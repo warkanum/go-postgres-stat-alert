@@ -28,9 +28,9 @@
         {
             "id": "configfile",
             "type": "pickString",
-            "default": "simplicity_demo",
+            "default": "test_config",
             "options": [
-                "simp_demo_zd",
+                "test_config",
             ],
             "description": "Select an Config File"
         }
