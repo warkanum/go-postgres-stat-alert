@@ -16,9 +16,9 @@ type WebhookConfig struct {
 }
 
 // sendWebhookAlert sends an alert to the configured webhook
-func (m *Monitor) sendWebhookAlert(queryName string, rule AlertRule) error {
-	if m.config.Alerts.Webhook.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "webhook", m.config.Alerts.Webhook.Interval) {
-		m.logger.Printf("%s alert for query %s skipped due to interval limit", "webhook", queryName)
+func (m *MonitorInstance) sendWebhookAlert(queryName string, rule AlertRule) error {
+	if m.monitor.config.Alerts.Webhook.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "webhook", m.monitor.config.Alerts.Webhook.Interval) {
+		m.monitor.logger.Printf("%s alert for query %s skipped due to interval limit", "webhook", queryName)
 		return fmt.Errorf("%s alert for query %s skipped due to interval limit", "webhook", queryName)
 	}
 	payload := AlertPayload{
@@ -27,27 +27,27 @@ func (m *Monitor) sendWebhookAlert(queryName string, rule AlertRule) error {
 		Message:  fmt.Sprintf("[%s] %s", queryName, rule.Message),
 		Category: rule.Category,
 		Value:    rule.Value,
-		Instance: m.config.Instance,
+		Instance: m.dbConfig.Instance,
 	}
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		m.logger.Printf("Error marshaling webhook payload: %v", err)
+		m.monitor.logger.Printf("Error marshaling webhook payload: %v", err)
 		return fmt.Errorf("failed to marshal webhook payload: %w", err)
 	}
 
-	resp, err := http.Post(m.config.Alerts.Webhook.URL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(m.monitor.config.Alerts.Webhook.URL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		m.logger.Printf("Error sending webhook alert: %v", err)
+		m.monitor.logger.Printf("Error sending webhook alert: %v", err)
 		return fmt.Errorf("failed to send webhook alert: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		m.logger.Printf("Webhook alert sent successfully for query: %s", queryName)
+		m.monitor.logger.Printf("Webhook alert sent successfully for query: %s", queryName)
 
 	} else {
-		m.logger.Printf("Webhook alert failed with status code: %d for query: %s", resp.StatusCode, queryName)
+		m.monitor.logger.Printf("Webhook alert failed with status code: %d for query: %s", resp.StatusCode, queryName)
 		return fmt.Errorf("webhook alert failed with status code: %d for query: %s", resp.StatusCode, queryName)
 	}
 	return nil

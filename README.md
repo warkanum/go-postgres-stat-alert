@@ -1,9 +1,10 @@
 # PostgreSQL Database Monitor
 
-A comprehensive PostgreSQL monitoring solution with multi-channel alerting, automated actions, and flexible deployment options.
+A comprehensive PostgreSQL monitoring solution with multi-database support, multi-channel alerting, automated actions, and flexible deployment options.
 
 ## 🚀 Features
 
+- **Multi-Database Monitoring**: Connect to multiple PostgreSQL instances simultaneously
 - **Real-time Monitoring**: Custom SQL queries with configurable intervals
 - **Multi-Channel Alerts**: Email, Telegram, Discord, Teams, and Webhooks
 - **Automated Actions**: Execute scripts/commands when alerts trigger
@@ -24,7 +25,7 @@ make build
 
 # Configure
 cp config.yaml.sample config.yaml
-nano config.yaml  # Edit database and alert settings
+nano config.yaml  # Edit databases and alert settings
 ```
 
 ### 2. Run
@@ -43,15 +44,21 @@ sudo ./install-centos.sh
 ## 🔧 Configuration Overview
 
 ```yaml
-instance: "production-db-01"
-
-database:
-  host: "localhost"
-  port: 5432
-  username: "monitor_user"
-  password: "secure_password"
-  database: "production"
-  sslmode: "verify-full"
+databases:
+  - instance: "production-db-01"
+    host: "localhost"
+    port: 5432
+    username: "monitor_user"
+    password: "secure_password"
+    database: "production"
+    sslmode: "verify-full"
+  
+  - instance: "staging-db-02"
+    host: "staging.example.com"
+    port: 5432
+    username: "monitor_user"
+    database: "staging"
+    sslmode: "require"
 
 alerts:
   email:
@@ -84,6 +91,12 @@ queries:
 ```
 
 ## 📊 Monitoring Capabilities
+
+### Multi-Database Architecture
+- **Simultaneous Monitoring**: Monitor multiple PostgreSQL instances from a single service
+- **Instance Isolation**: Each database connection is managed independently 
+- **Per-Instance Tracking**: Alerts include instance identification for easy troubleshooting
+- **Centralized Configuration**: Single config file manages all database connections
 
 ### Built-in Queries
 - **Connection Monitoring**: Active connections, long-running queries
@@ -142,7 +155,7 @@ kubectl logs -f deployment/postgres-stat-alert -n monitoring
 
 ## 🔒 Security Features
 
-- **Minimal Database Permissions**: Read-only monitoring user
+- **Minimal Database Permissions**: Read-only monitoring user per database
 - **SSL/TLS Support**: Encrypted database and SMTP connections
 - **Secrets Management**: Environment variables and external secret stores
 - **Service Isolation**: Non-privileged user execution
@@ -156,23 +169,33 @@ kubectl logs -f deployment/postgres-stat-alert -n monitoring
 
 ## 🎯 Example Use Cases
 
-### Automated Remediation
-```yaml
-execute_action: "/scripts/restart_connection_pooler.sh"  # Auto-restart on high load
-execute_action: "/scripts/kill_slow_queries.py --timeout 300"  # Terminate slow queries
-execute_action: "/scripts/cleanup_temp_files.sh"  # Clean up storage issues
-```
-
 ### Multi-Environment Monitoring
 ```yaml
+databases:
+  - instance: "prod-primary"
+    host: "prod-db-01.internal"
+    database: "app_production"
+  
+  - instance: "prod-replica"
+    host: "prod-db-02.internal"
+    database: "app_production"
+  
+  - instance: "staging"
+    host: "staging-db.internal"
+    database: "app_staging"
+
 # Production: Email + Teams (management)
 channels: ["email", "teams"]
 
 # Staging: Discord + Telegram (development)  
 channels: ["discord", "telegram"]
+```
 
-# Development: Telegram only (immediate feedback)
-channels: ["telegram"]
+### Automated Remediation
+```yaml
+execute_action: "/scripts/restart_connection_pooler.sh"  # Auto-restart on high load
+execute_action: "/scripts/kill_slow_queries.py --timeout 300"  # Terminate slow queries
+execute_action: "/scripts/cleanup_temp_files.sh"  # Clean up storage issues
 ```
 
 ### Escalation Workflows
@@ -224,11 +247,11 @@ make dev
 
 ## 📈 Performance
 
-- **Memory Usage**: ~50-100MB baseline
+- **Memory Usage**: ~50-100MB baseline + ~10MB per database
 - **CPU Usage**: <1% during normal operation
 - **Database Impact**: Minimal (read-only queries)
 - **Network**: Low bandwidth usage
-- **Scalability**: Handles 100+ queries efficiently
+- **Scalability**: Handles 100+ queries across multiple databases efficiently
 
 ## 🐛 Troubleshooting
 
@@ -247,10 +270,10 @@ make validate-config
 
 ### Database Connectivity
 ```bash
-# Test database connection
+# Test database connections
 psql "host=localhost port=5432 dbname=mydb user=monitor_user"
 
-# Check monitoring queries
+# Check monitoring queries per instance
 SELECT count(*) FROM pg_stat_activity WHERE state = 'active';
 ```
 
@@ -281,4 +304,3 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - Go community for robust libraries
 - Alert service providers for reliable APIs
 
----

@@ -40,9 +40,9 @@ type TeamsMessageFact struct {
 }
 
 // sendTeamsAlert sends an alert to Microsoft Teams
-func (m *Monitor) sendTeamsAlert(queryName string, rule AlertRule) error {
-	if m.config.Alerts.Teams.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "teams", m.config.Alerts.Teams.Interval) {
-		m.logger.Printf("%s alert for query %s skipped due to interval limit", "teams", queryName)
+func (m *MonitorInstance) sendTeamsAlert(queryName string, rule AlertRule) error {
+	if m.monitor.config.Alerts.Teams.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "teams", m.monitor.config.Alerts.Teams.Interval) {
+		m.monitor.logger.Printf("%s alert for query %s skipped due to interval limit", "teams", queryName)
 		return fmt.Errorf("%s alert for query %s skipped due to interval limit", "teams", queryName)
 	}
 	// Choose theme color based on category
@@ -59,7 +59,7 @@ func (m *Monitor) sendTeamsAlert(queryName string, rule AlertRule) error {
 	}
 
 	facts := []TeamsMessageFact{
-		{Name: "Instance", Value: m.config.Instance},
+		{Name: "Instance", Value: m.dbConfig.Instance},
 		{Name: "Query", Value: queryName},
 		{Name: "Category", Value: rule.Category},
 		{Name: "Time", Value: time.Now().Format(time.RFC3339)},
@@ -68,7 +68,7 @@ func (m *Monitor) sendTeamsAlert(queryName string, rule AlertRule) error {
 	section := TeamsMessageSection{
 		ActivityTitle:    "🚨 Database Alert",
 		ActivitySubtitle: rule.Message,
-		Text:             fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s\n**Value:** %v", m.config.Instance, queryName, rule.Message, rule.Value),
+		Text:             fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s\n**Value:** %v", m.dbConfig.Instance, queryName, rule.Message, rule.Value),
 		Facts:            facts,
 	}
 
@@ -82,21 +82,21 @@ func (m *Monitor) sendTeamsAlert(queryName string, rule AlertRule) error {
 
 	jsonData, err := json.Marshal(teamsMsg)
 	if err != nil {
-		m.logger.Printf("Error marshaling Teams message: %v", err)
+		m.monitor.logger.Printf("Error marshaling Teams message: %v", err)
 		return fmt.Errorf("failed to marshal Teams message: %w", err)
 	}
 
-	resp, err := http.Post(m.config.Alerts.Teams.WebhookURL, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(m.monitor.config.Alerts.Teams.WebhookURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		m.logger.Printf("Error sending Teams alert: %v", err)
+		m.monitor.logger.Printf("Error sending Teams alert: %v", err)
 		return fmt.Errorf("failed to send Teams alert: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		m.logger.Printf("Teams alert sent successfully for query: %s", queryName)
+		m.monitor.logger.Printf("Teams alert sent successfully for query: %s", queryName)
 	} else {
-		m.logger.Printf("Teams alert failed with status code: %d for query: %s", resp.StatusCode, queryName)
+		m.monitor.logger.Printf("Teams alert failed with status code: %d for query: %s", resp.StatusCode, queryName)
 	}
 
 	return nil

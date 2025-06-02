@@ -49,7 +49,7 @@ func (at *AlertTracker) RecordAlert(queryName, channel string) {
 }
 
 // checkAlertRules evaluates alert rules against query results
-func (m *Monitor) checkAlertRules(queryConfig QueryConfig, columns []string, values []interface{}) {
+func (m *MonitorInstance) checkAlertRules(queryConfig QueryConfig, columns []string, values []interface{}) {
 	for _, rule := range queryConfig.AlertRules {
 		// For simplicity, assume the first column contains the value to check
 		// In a real implementation, you might want to specify which column to check
@@ -57,11 +57,26 @@ func (m *Monitor) checkAlertRules(queryConfig QueryConfig, columns []string, val
 			continue
 		}
 
+		if rule.Instances != nil && len(rule.Instances) > 0 {
+			allow := false
+			for _, instance := range rule.Instances {
+				if instance == m.dbConfig.Instance {
+					allow = true
+					break
+				}
+			}
+
+			if !allow {
+				m.monitor.logger.Printf("Skipping alert for query %s on %s due to instance restriction", queryConfig.Name, m.dbConfig.Instance)
+				continue
+			}
+		}
+
 		value := values[0]
 		if m.evaluateCondition(value, rule.Condition, rule.Value) {
-			m.logger.Printf("Alert triggered for query %s: %s", queryConfig.Name, rule.Message)
+			m.monitor.logger.Printf("Alert triggered for query %s: %s", queryConfig.Name, rule.Message)
 			if !m.isWithinAlertHours(rule) {
-				m.logger.Printf("Alert for query %s suppressed due to time restrictions", queryConfig.Name)
+				m.monitor.logger.Printf("Alert for query %s suppressed due to time restrictions", queryConfig.Name)
 				continue
 			}
 			m.sendAlerts(queryConfig.Name, rule)
@@ -72,33 +87,33 @@ func (m *Monitor) checkAlertRules(queryConfig QueryConfig, columns []string, val
 			}
 
 		}
-		m.logger.Printf("Query Result %s: %v", queryConfig.Name, value)
+		m.monitor.logger.Printf("Query Result %s: %v", queryConfig.Name, value)
 	}
 }
 
 // sendAlerts sends alerts to all configured channels
-func (m *Monitor) sendAlerts(queryName string, rule AlertRule) {
+func (m *MonitorInstance) sendAlerts(queryName string, rule AlertRule) {
 	// Determine which channels to use
 	channels := rule.Channels
 	if len(rule.Channels) == 0 {
 		// If no specific channels specified, use all enabled channels
 		channels = []string{}
-		if m.config.Alerts.Webhook.Enabled {
+		if m.monitor.config.Alerts.Webhook.Enabled {
 			channels = append(channels, "webhook")
 		}
-		if m.config.Alerts.Telegram.Enabled {
+		if m.monitor.config.Alerts.Telegram.Enabled {
 			channels = append(channels, "telegram")
 		}
-		if m.config.Alerts.Discord.Enabled {
+		if m.monitor.config.Alerts.Discord.Enabled {
 			channels = append(channels, "discord")
 		}
-		if m.config.Alerts.Teams.Enabled {
+		if m.monitor.config.Alerts.Teams.Enabled {
 			channels = append(channels, "teams")
 		}
-		if m.config.Alerts.Email.Enabled {
+		if m.monitor.config.Alerts.Email.Enabled {
 			channels = append(channels, "email")
 		}
-		if m.config.Alerts.WhatsApp.Enabled {
+		if m.monitor.config.Alerts.WhatsApp.Enabled {
 			channels = append(channels, "whatsapp")
 		}
 	}
@@ -109,27 +124,27 @@ func (m *Monitor) sendAlerts(queryName string, rule AlertRule) {
 
 		switch strings.ToLower(channel) {
 		case "webhook":
-			if m.config.Alerts.Webhook.Enabled {
+			if m.monitor.config.Alerts.Webhook.Enabled {
 				err = m.sendWebhookAlert(queryName, rule)
 			}
 		case "telegram":
-			if m.config.Alerts.Telegram.Enabled {
+			if m.monitor.config.Alerts.Telegram.Enabled {
 				err = m.sendTelegramAlert(queryName, rule)
 			}
 		case "discord":
-			if m.config.Alerts.Discord.Enabled {
+			if m.monitor.config.Alerts.Discord.Enabled {
 				err = m.sendDiscordAlert(queryName, rule)
 			}
 		case "teams":
-			if m.config.Alerts.Teams.Enabled {
+			if m.monitor.config.Alerts.Teams.Enabled {
 				err = m.sendTeamsAlert(queryName, rule)
 			}
 		case "email":
-			if m.config.Alerts.Email.Enabled {
+			if m.monitor.config.Alerts.Email.Enabled {
 				err = m.sendEmailAlert(queryName, rule)
 			}
 		case "whatsapp":
-			if m.config.Alerts.WhatsApp.Enabled {
+			if m.monitor.config.Alerts.WhatsApp.Enabled {
 				err = m.sendWhatsAppAlert(queryName, rule)
 			}
 		}
@@ -141,13 +156,13 @@ func (m *Monitor) sendAlerts(queryName string, rule AlertRule) {
 }
 
 // executeAction runs the specified command/script when an alert is triggered
-func (m *Monitor) executeAction(queryName string, rule AlertRule) {
-	m.logger.Printf("Executing action for query %s: %s", queryName, rule.ExecuteAction)
+func (m *MonitorInstance) executeAction(queryName string, rule AlertRule) {
+	m.monitor.logger.Printf("Executing action for query %s: %s", queryName, rule.ExecuteAction)
 
 	// Parse command and arguments
 	parts := strings.Fields(rule.ExecuteAction)
 	if len(parts) == 0 {
-		m.logger.Printf("Error: Empty execute_action for query %s", queryName)
+		m.monitor.logger.Printf("Error: Empty execute_action for query %s", queryName)
 		return
 	}
 
@@ -162,7 +177,7 @@ func (m *Monitor) executeAction(queryName string, rule AlertRule) {
 
 	// Set environment variables for the script
 	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("MONITOR_INSTANCE=%s", m.config.Instance),
+		fmt.Sprintf("MONITOR_INSTANCE=%s", m.dbConfig.Instance),
 		fmt.Sprintf("MONITOR_QUERY=%s", queryName),
 		fmt.Sprintf("MONITOR_MESSAGE=%s", rule.Message),
 		fmt.Sprintf("MONITOR_CATEGORY=%s", rule.Category),
@@ -181,23 +196,23 @@ func (m *Monitor) executeAction(queryName string, rule AlertRule) {
 	duration := time.Since(start)
 
 	if err != nil {
-		m.logger.Printf("Action execution failed for query %s: %v", queryName, err)
+		m.monitor.logger.Printf("Action execution failed for query %s: %v", queryName, err)
 		if stderr.Len() > 0 {
-			m.logger.Printf("Action stderr: %s", stderr.String())
+			m.monitor.logger.Printf("Action stderr: %s", stderr.String())
 		}
 		return
 	}
 
-	m.logger.Printf("Action executed successfully for query %s (duration: %v)", queryName, duration)
+	m.monitor.logger.Printf("Action executed successfully for query %s (duration: %v)", queryName, duration)
 
 	// Log stdout if present (useful for debugging)
 	if stdout.Len() > 0 {
-		m.logger.Printf("Action output: %s", strings.TrimSpace(stdout.String()))
+		m.monitor.logger.Printf("Action output: %s", strings.TrimSpace(stdout.String()))
 	}
 }
 
 // isWithinAlertHours checks if current time is within allowed alert hours
-func (m *Monitor) isWithinAlertHours(rule AlertRule) bool {
+func (m *MonitorInstance) isWithinAlertHours(rule AlertRule) bool {
 	// If no alert hours specified, always allow alerts
 	if rule.AlertHours == nil {
 		return true
@@ -211,7 +226,7 @@ func (m *Monitor) isWithinAlertHours(rule AlertRule) bool {
 	if alertHours.Timezone != "" {
 		loc, err = time.LoadLocation(alertHours.Timezone)
 		if err != nil {
-			m.logger.Printf("Invalid timezone '%s', using UTC: %v", alertHours.Timezone, err)
+			m.monitor.logger.Printf("Invalid timezone '%s', using UTC: %v", alertHours.Timezone, err)
 			loc = time.UTC
 		}
 	} else {
@@ -238,14 +253,14 @@ func (m *Monitor) isWithinAlertHours(rule AlertRule) bool {
 	// Parse start time
 	startTime, err := time.ParseInLocation("15:04", alertHours.Start, loc)
 	if err != nil {
-		m.logger.Printf("Invalid start time format '%s', expected HH:MM: %v", alertHours.Start, err)
+		m.monitor.logger.Printf("Invalid start time format '%s', expected HH:MM: %v", alertHours.Start, err)
 		return true // Allow alert if time format is invalid
 	}
 
 	// Parse end time
 	endTime, err := time.ParseInLocation("15:04", alertHours.End, loc)
 	if err != nil {
-		m.logger.Printf("Invalid end time format '%s', expected HH:MM: %v", alertHours.End, err)
+		m.monitor.logger.Printf("Invalid end time format '%s', expected HH:MM: %v", alertHours.End, err)
 		return true // Allow alert if time format is invalid
 	}
 

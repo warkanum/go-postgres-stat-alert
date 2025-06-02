@@ -8,15 +8,15 @@ import (
 
 // Config represents the YAML configuration structure
 type Config struct {
-	Instance string         `yaml:"instance"`
-	Database DatabaseConfig `yaml:"database"`
-	Logging  LoggingConfig  `yaml:"logging"`
-	Queries  []QueryConfig  `yaml:"queries"`
-	Alerts   AlertsConfig   `yaml:"alerts"`
+	Database []DatabaseConfig `yaml:"databases"`
+	Logging  LoggingConfig    `yaml:"logging"`
+	Queries  []QueryConfig    `yaml:"queries"`
+	Alerts   AlertsConfig     `yaml:"alerts"`
 }
 
 // DatabaseConfig holds database connection details
 type DatabaseConfig struct {
+	Instance string `yaml:"instance"`
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	Username string `yaml:"username"`
@@ -47,6 +47,7 @@ type AlertRule struct {
 	Category      string      `yaml:"category"`
 	To            string      `yaml:"to"`
 	Channels      []string    `yaml:"channels,omitempty"`
+	Instances     []string    `yaml:"instances,omitempty"`      // Optional list of instances to apply this rule
 	ExecuteAction string      `yaml:"execute_action,omitempty"` // Optional action to execute on alert
 	AlertHours    *AlertHours `yaml:"alert_hours,omitempty"`    // Optional time range for alerts
 
@@ -82,8 +83,15 @@ type AlertPayload struct {
 
 // Monitor represents the database monitor
 type Monitor struct {
-	config       *Config
+	config *Config
+	logger *log.Logger
+
+	instances map[string]*MonitorInstance
+}
+
+type MonitorInstance struct {
+	monitor      *Monitor
+	dbConfig     *DatabaseConfig
 	db           *sql.DB
-	logger       *log.Logger
 	alertTracker *AlertTracker
 }

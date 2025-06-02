@@ -25,9 +25,9 @@ type TelegramMessage struct {
 }
 
 // sendTelegramAlert sends an alert to Telegram
-func (m *Monitor) sendTelegramAlert(queryName string, rule AlertRule) error {
-	if m.config.Alerts.Telegram.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "telegram", m.config.Alerts.Telegram.Interval) {
-		m.logger.Printf("%s alert for query %s skipped due to interval limit", "telegram", queryName)
+func (m *MonitorInstance) sendTelegramAlert(queryName string, rule AlertRule) error {
+	if m.monitor.config.Alerts.Telegram.Interval > 0 && !m.alertTracker.CanSendAlert(queryName, "telegram", m.monitor.config.Alerts.Telegram.Interval) {
+		m.monitor.logger.Printf("%s alert for query %s skipped due to interval limit", "telegram", queryName)
 		return fmt.Errorf("%s alert for query %s skipped due to interval limit", "telegram", queryName)
 	}
 	// Use HTML parse mode which is more reliable than Markdown
@@ -38,7 +38,7 @@ func (m *Monitor) sendTelegramAlert(queryName string, rule AlertRule) error {
 		"<b>Message:</b> %s\n"+
 		"<b>Time:</b> %s\n"+
 		"<b>Value:</b> %s",
-		escapeHTML(m.config.Instance),
+		escapeHTML(m.dbConfig.Instance),
 		escapeHTML(queryName),
 		escapeHTML(rule.Category),
 		escapeHTML(rule.Message),
@@ -46,28 +46,28 @@ func (m *Monitor) sendTelegramAlert(queryName string, rule AlertRule) error {
 		escapeHTML(fmt.Sprintf("%v", rule.Value)))
 
 	telegramMsg := TelegramMessage{
-		ChatID:    m.config.Alerts.Telegram.ChatID,
+		ChatID:    m.monitor.config.Alerts.Telegram.ChatID,
 		Text:      message,
 		ParseMode: "HTML",
 	}
 
 	jsonData, err := json.Marshal(telegramMsg)
 	if err != nil {
-		m.logger.Printf("Error marshaling Telegram message: %v", err)
+		m.monitor.logger.Printf("Error marshaling Telegram message: %v", err)
 		return fmt.Errorf("failed to marshal Telegram message: %w", err)
 	}
 
-	telegramURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", m.config.Alerts.Telegram.BotToken)
+	telegramURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", m.monitor.config.Alerts.Telegram.BotToken)
 
 	resp, err := http.Post(telegramURL, "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		m.logger.Printf("Error sending Telegram alert: %v", err)
+		m.monitor.logger.Printf("Error sending Telegram alert: %v", err)
 		return fmt.Errorf("failed to send Telegram alert: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		m.logger.Printf("Telegram alert sent successfully for query: %s", queryName)
+		m.monitor.logger.Printf("Telegram alert sent successfully for query: %s", queryName)
 	} else {
 		defer func() {
 			if resp.Body != nil {
@@ -76,7 +76,7 @@ func (m *Monitor) sendTelegramAlert(queryName string, rule AlertRule) error {
 		}()
 		respBody, _ := io.ReadAll(resp.Body)
 
-		m.logger.Printf("Telegram alert failed with status code: %d %s (%s) for query: %s", resp.StatusCode, resp.Status, string(respBody), queryName)
+		m.monitor.logger.Printf("Telegram alert failed with status code: %d %s (%s) for query: %s", resp.StatusCode, resp.Status, string(respBody), queryName)
 		return fmt.Errorf("Telegram alert failed with status code: %d %s (%s) for query: %s", resp.StatusCode, resp.Status, string(respBody), queryName)
 	}
 

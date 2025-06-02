@@ -30,14 +30,14 @@ type WhatsAppTextMessage struct {
 }
 
 // sendWhatsAppAlert sends an alert via WhatsApp Business API
-func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
+func (m *MonitorInstance) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 	// Check if enough time has passed since last alert
-	if !m.alertTracker.CanSendAlert(queryName, "whatsapp", m.config.Alerts.WhatsApp.Interval) {
-		m.logger.Printf("WhatsApp alert for query %s skipped due to interval limit", queryName)
+	if !m.alertTracker.CanSendAlert(queryName, "whatsapp", m.monitor.config.Alerts.WhatsApp.Interval) {
+		m.monitor.logger.Printf("WhatsApp alert for query %s skipped due to interval limit", queryName)
 		return fmt.Errorf("WhatsApp alert for query %s skipped due to interval limit", queryName)
 	}
 
-	config := m.config.Alerts.WhatsApp
+	config := m.monitor.config.Alerts.WhatsApp
 
 	// Create message content
 	messageText := fmt.Sprintf("🚨 *Database Alert* 🚨\n\n"+
@@ -47,7 +47,7 @@ func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 		"*Message:* %s\n"+
 		"*Time:* %s\n"+
 		"*Value:* %s",
-		m.config.Instance,
+		m.dbConfig.Instance,
 		queryName,
 		rule.Category,
 		rule.Message,
@@ -65,7 +65,7 @@ func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 
 	jsonData, err := json.Marshal(whatsappMsg)
 	if err != nil {
-		m.logger.Printf("Error marshaling WhatsApp message: %v", err)
+		m.monitor.logger.Printf("Error marshaling WhatsApp message: %v", err)
 		return fmt.Errorf("failed to marshal WhatsApp message: %w", err)
 	}
 
@@ -74,7 +74,7 @@ func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
-		m.logger.Printf("Error creating WhatsApp request: %v", err)
+		m.monitor.logger.Printf("Error creating WhatsApp request: %v", err)
 		return fmt.Errorf("failed to create WhatsApp request: %w", err)
 	}
 
@@ -84,7 +84,7 @@ func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		m.logger.Printf("Error sending WhatsApp alert: %v", err)
+		m.monitor.logger.Printf("Error sending WhatsApp alert: %v", err)
 		return fmt.Errorf("failed to send WhatsApp alert: %w", err)
 	}
 	defer resp.Body.Close()
@@ -95,10 +95,10 @@ func (m *Monitor) sendWhatsAppAlert(queryName string, rule AlertRule) error {
 		bodyText = string(bodyBytes)
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		m.logger.Printf("WhatsApp alert sent successfully for query: %s -> %s", queryName, bodyText)
+		m.monitor.logger.Printf("WhatsApp alert sent successfully for query: %s -> %s", queryName, bodyText)
 		m.alertTracker.RecordAlert(queryName, "whatsapp")
 	} else {
-		m.logger.Printf("WhatsApp alert failed with status code: %d for query: %s -> %s", resp.StatusCode, queryName, bodyText)
+		m.monitor.logger.Printf("WhatsApp alert failed with status code: %d for query: %s -> %s", resp.StatusCode, queryName, bodyText)
 		return fmt.Errorf("WhatsApp alert failed with status code: %d for query: %s -> %s", resp.StatusCode, queryName, bodyText)
 	}
 

@@ -21,30 +21,51 @@ func NewMonitor(configPath string) (*Monitor, error) {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
 
-	logger := log.New(logFile, fmt.Sprintf("[Postgres Stat Alert] (%s) ", config.Instance), log.LstdFlags|log.Lshortfile)
+	logger := log.New(logFile, fmt.Sprintf("[Postgres Stat Alert] "), log.LstdFlags|log.Lshortfile)
 	fmt.Printf("\nLogging to file: %s\n", config.Logging.FilePath)
-	// Connect to database
-	db, err := connectToDatabase(config.Database)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+
+	monitor := &Monitor{
+		config:    config,
+		instances: nil,
+		logger:    logger,
 	}
 
-	return &Monitor{
-		config:       config,
-		db:           db,
-		logger:       logger,
-		alertTracker: NewAlertTracker(),
-	}, nil
+	instances := make(map[string]*MonitorInstance)
+
+	if len(config.Database) == 0 {
+		return nil, fmt.Errorf("no database configurations found in the config file")
+	}
+
+	for _, dbConfig := range config.Database {
+		fmt.Printf("Connecting to database: %s at %s\n", dbConfig.Database, dbConfig.Host)
+
+		// Connect to database
+		db, err := connectToDatabase(dbConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to connect to database: %w", err)
+		}
+
+		instances[dbConfig.Database] = &MonitorInstance{
+			monitor:      monitor, // Will be set later
+			db:           db,
+			dbConfig:     &dbConfig,
+			alertTracker: NewAlertTracker(),
+		}
+
+	}
+	monitor.instances = instances
+	return monitor, nil
 }
 
 // Start begins monitoring the database
 func (m *Monitor) Start() {
 	m.logger.Println("Starting database monitor...")
-	fmt.Println("Connected to database:", m.config.Database.Host, m.config.Database.Database)
 
-	// Start monitoring each query in separate goroutines
-	for _, query := range m.config.Queries {
-		go m.monitorQuery(query)
+	for _, instance := range m.instances {
+		// Start monitoring each query in separate goroutines
+		for _, query := range instance.monitor.config.Queries {
+			go instance.monitorQuery(query)
+		}
 	}
 
 	// Keep the main thread alive
@@ -52,12 +73,12 @@ func (m *Monitor) Start() {
 }
 
 // monitorQuery monitors a specific query based on its configuration
-func (m *Monitor) monitorQuery(queryConfig QueryConfig) {
+func (m *MonitorInstance) monitorQuery(queryConfig QueryConfig) {
 	ticker := time.NewTicker(queryConfig.Interval)
 	defer ticker.Stop()
 
-	m.logger.Printf("Starting monitoring for query: %s (interval: %v)", queryConfig.Name, queryConfig.Interval)
-	fmt.Printf("\nStarting monitoring for query: %s (interval: %v)", queryConfig.Name, queryConfig.Interval)
+	m.monitor.logger.Printf("Starting monitoring for query: %s (interval: %v) on host: %s database: %s", queryConfig.Name, queryConfig.Interval, m.dbConfig.Host, m.dbConfig.Database)
+	fmt.Printf("\nStarting monitoring for query: %s (interval: %v) on host: %s database: %s", queryConfig.Name, queryConfig.Interval, m.dbConfig.Host, m.dbConfig.Database)
 
 	for {
 		select {
@@ -79,12 +100,12 @@ func (m *Monitor) monitorQuery(queryConfig QueryConfig) {
 }
 
 // executeAndCheck executes a query and checks alert rules
-func (m *Monitor) executeAndCheck(queryConfig QueryConfig) error {
-	m.logger.Printf("Executing query: %s", queryConfig.Name)
+func (m *MonitorInstance) executeAndCheck(queryConfig QueryConfig) error {
+	m.monitor.logger.Printf("Executing query: %s", queryConfig.Name)
 
 	rows, err := m.db.Query(queryConfig.SQL)
 	if err != nil {
-		m.logger.Printf("Error executing query %s: %v", queryConfig.Name, err)
+		m.monitor.logger.Printf("Error executing query %s: %v", queryConfig.Name, err)
 		return fmt.Errorf("failed to execute query %s: %w", queryConfig.Name, err)
 	}
 	defer rows.Close()
@@ -92,7 +113,7 @@ func (m *Monitor) executeAndCheck(queryConfig QueryConfig) error {
 	// Get column names
 	columns, err := rows.Columns()
 	if err != nil {
-		m.logger.Printf("Error getting columns for query %s: %v", queryConfig.Name, err)
+		m.monitor.logger.Printf("Error getting columns for query %s: %v", queryConfig.Name, err)
 		return fmt.Errorf("failed to get columns for query %s: %w", queryConfig.Name, err)
 	}
 
@@ -108,7 +129,7 @@ func (m *Monitor) executeAndCheck(queryConfig QueryConfig) error {
 		// Scan the row
 		err = rows.Scan(valuePtrs...)
 		if err != nil {
-			m.logger.Printf("Error scanning row for query %s: %v", queryConfig.Name, err)
+			m.monitor.logger.Printf("Error scanning row for query %s: %v", queryConfig.Name, err)
 			continue
 		}
 
@@ -117,14 +138,14 @@ func (m *Monitor) executeAndCheck(queryConfig QueryConfig) error {
 	}
 
 	if err = rows.Err(); err != nil {
-		m.logger.Printf("Error iterating rows for query %s: %v", queryConfig.Name, err)
+		m.monitor.logger.Printf("Error iterating rows for query %s: %v", queryConfig.Name, err)
 		return fmt.Errorf("error iterating rows for query %s: %w", queryConfig.Name, err)
 	}
 	return nil
 }
 
 // evaluateCondition checks if a condition is met
-func (m *Monitor) evaluateCondition(actual interface{}, condition string, expected interface{}) bool {
+func (m *MonitorInstance) evaluateCondition(actual interface{}, condition string, expected interface{}) bool {
 	// Convert to float64 for numeric comparisons
 	actualFloat, actualOk := convertToFloat64(actual)
 	expectedFloat, expectedOk := convertToFloat64(expected)
@@ -191,8 +212,14 @@ func parseFloat(str string) (float64, error) {
 
 // Close closes the database connection and cleans up resources
 func (m *Monitor) Close() error {
-	if m.db != nil {
-		return m.db.Close()
+	if m.instances != nil {
+		for _, instance := range m.instances {
+			if instance.db != nil {
+				return instance.db.Close()
+			}
+		}
+		m.instances = nil
 	}
+
 	return nil
 }
