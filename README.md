@@ -237,6 +237,14 @@ make test
 make dev
 ```
 
+
+## 📝 Todo
+
+- User interface to setup monitors and alerts
+- More monitor types for example Shell commands or programs to check for errors in logs.
+- Remote Registrar, used to check all running instances are online and will be reporting.
+
+
 ### Contributing
 1. Fork the repository
 2. Create a feature branch
