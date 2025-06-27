@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -102,6 +103,16 @@ func (m *MonitorInstance) monitorQuery(queryConfig QueryConfig) {
 // executeAndCheck executes a query and checks alert rules
 func (m *MonitorInstance) executeAndCheck(queryConfig QueryConfig) error {
 	m.monitor.logger.Printf("Executing query: %s", queryConfig.Name)
+
+	if strings.HasPrefix(queryConfig.SQL, "[started]") {
+		now := time.Now()
+		if m.startedAt.IsZero() {
+			m.startedAt = now
+			m.checkAlertRules(queryConfig, nil, []interface{}{1})
+		}
+
+		return nil
+	}
 
 	rows, err := m.db.Query(queryConfig.SQL)
 	if err != nil {

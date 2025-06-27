@@ -94,4 +94,5 @@ type MonitorInstance struct {
 	dbConfig     *DatabaseConfig
 	db           *sql.DB
 	alertTracker *AlertTracker
+	startedAt    time.Time
 }
