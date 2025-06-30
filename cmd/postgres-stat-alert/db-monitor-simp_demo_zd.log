@@ -1,0 +1,24 @@
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:68: Starting database monitor...
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: monitor tool startup (interval: 1s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: database_size (interval: 1m40s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: failed_logins (interval: 5m0s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: simpweb_connection_count (interval: 2s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: replication_lag (interval: 30s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: connection_count (interval: 2s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: long_running_queries (interval: 1m0s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: table_bloat (interval: 1h0m0s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: long_running_queries (interval: 1m0s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: failed_logins (interval: 5m0s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: replication_lag (interval: 30s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: table_bloat (interval: 1h0m0s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: simpweb_connection_count (interval: 2s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: monitor tool startup (interval: 1s) on host: 10.0.0.10 database: simp_demo_zd
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: connection_count (interval: 2s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:31 monitor.go:90: Starting monitoring for query: database_size (interval: 1m40s) on host: 10.0.0.10 database: simplicity_dev
+[Postgres Stat Alert] 2025/06/30 13:38:32 monitor.go:114: Executing query: monitor tool startup
+[Postgres Stat Alert] 2025/06/30 13:38:32 alert.go:77: Alert triggered for query monitor tool startup: Tool started
+[Postgres Stat Alert] 2025/06/30 13:38:32 alert.go:90: Query Result monitor tool startup: 1
+[Postgres Stat Alert] 2025/06/30 13:38:32 monitor.go:114: Executing query: monitor tool startup
+[Postgres Stat Alert] 2025/06/30 13:38:32 alert.go:77: Alert triggered for query monitor tool startup: Tool started
+[Postgres Stat Alert] 2025/06/30 13:38:32 alert.go:90: Query Result monitor tool startup: 1
+[Postgres Stat Alert] 2025/06/30 13:38:33 monitor.go:80: Received signal: interrupt. Shutting down...

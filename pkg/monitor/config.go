@@ -52,7 +52,12 @@ func connectToDatabase(dbConfig DatabaseConfig) (*sql.DB, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec("SET APPLICATION_NAME = 'postgres-stat-alert'") // Set application name for easier identification in logs
+	db.SetConnMaxIdleTime(time.Second * 30)
+	db.SetConnMaxLifetime(time.Hour * 2)
+	db.SetMaxOpenConns(15)
+	db.SetMaxIdleConns(1)
+
+	_, err = db.Exec("SET APPLICATION_NAME = 'postgres-stat-alert';") // Set application name for easier identification in logs
 	if err != nil {
 		return nil, err
 	}

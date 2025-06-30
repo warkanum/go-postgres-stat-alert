@@ -27,6 +27,5 @@ func main() {
 	}
 	defer monitor.Close()
 
-	// Handle graceful shutdown
 	monitor.Start()
 }

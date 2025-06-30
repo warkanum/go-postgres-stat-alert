@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -29,7 +31,10 @@ func NewMonitor(configPath string) (*Monitor, error) {
 		config:    config,
 		instances: nil,
 		logger:    logger,
+		osSignal:  make(chan os.Signal, 1),
 	}
+
+	signal.Notify(monitor.osSignal, syscall.SIGINT, syscall.SIGTERM)
 
 	instances := make(map[string]*MonitorInstance)
 
@@ -70,7 +75,11 @@ func (m *Monitor) Start() {
 	}
 
 	// Keep the main thread alive
-	select {}
+	select {
+	case sig := <-m.osSignal:
+		m.logger.Printf("Received signal: %s. Shutting down...", sig)
+		fmt.Printf("\nReceived signal: %s. Shutting down...\n", sig)
+	}
 }
 
 // monitorQuery monitors a specific query based on its configuration
