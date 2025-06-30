@@ -28,6 +28,7 @@ func (m *MonitorInstance) sendWebhookAlert(queryName string, rule AlertRule) err
 		Category: rule.Category,
 		Value:    rule.Value,
 		Instance: m.dbConfig.Instance,
+		Note:     rule.ResolutionNote,
 	}
 
 	jsonData, err := json.Marshal(payload)

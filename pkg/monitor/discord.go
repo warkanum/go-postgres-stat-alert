@@ -51,7 +51,7 @@ func (m *MonitorInstance) sendDiscordAlert(queryName string, rule AlertRule) err
 
 	embed := DiscordEmbed{
 		Title:       "🚨 Database Alert 🚨",
-		Description: fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s \n**Value** %v", m.dbConfig.Instance, queryName, rule.Message, rule.Value),
+		Description: fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s \n**Value** %v\n\n %v", m.dbConfig.Instance, queryName, rule.Message, rule.Value, rule.ResolutionNote),
 		Color:       color,
 		Timestamp:   time.Now().Format(time.RFC3339),
 	}

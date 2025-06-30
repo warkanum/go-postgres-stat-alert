@@ -3,6 +3,7 @@ package monitor
 import (
 	"database/sql"
 	"log"
+	"os"
 	"time"
 )
 
@@ -41,15 +42,16 @@ type QueryConfig struct {
 
 // AlertRule defines conditions for triggering alerts
 type AlertRule struct {
-	Condition     string      `yaml:"condition"` // "gt", "lt", "eq", "ne", "gte", "lte"
-	Value         interface{} `yaml:"value"`
-	Message       string      `yaml:"message"`
-	Category      string      `yaml:"category"`
-	To            string      `yaml:"to"`
-	Channels      []string    `yaml:"channels,omitempty"`
-	Instances     []string    `yaml:"instances,omitempty"`      // Optional list of instances to apply this rule
-	ExecuteAction string      `yaml:"execute_action,omitempty"` // Optional action to execute on alert
-	AlertHours    *AlertHours `yaml:"alert_hours,omitempty"`    // Optional time range for alerts
+	Condition      string      `yaml:"condition"` // "gt", "lt", "eq", "ne", "gte", "lte"
+	Value          interface{} `yaml:"value"`
+	Message        string      `yaml:"message"`
+	ResolutionNote string      `yaml:"resolution_note,omitempty"` // Optional note for resolution
+	Category       string      `yaml:"category"`
+	To             string      `yaml:"to"`
+	Channels       []string    `yaml:"channels,omitempty"`
+	Instances      []string    `yaml:"instances,omitempty"`      // Optional list of instances to apply this rule
+	ExecuteAction  string      `yaml:"execute_action,omitempty"` // Optional action to execute on alert
+	AlertHours     *AlertHours `yaml:"alert_hours,omitempty"`    // Optional time range for alerts
 
 }
 
@@ -79,13 +81,14 @@ type AlertPayload struct {
 	Category string      `json:"category"`
 	Instance string      `json:"instance"`
 	Value    interface{} `json:"value"`
+	Note     string      `json:"note"`
 }
 
 // Monitor represents the database monitor
 type Monitor struct {
-	config *Config
-	logger *log.Logger
-
+	config    *Config
+	logger    *log.Logger
+	osSignal  chan os.Signal
 	instances map[string]*MonitorInstance
 }
 

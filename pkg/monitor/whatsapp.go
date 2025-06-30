@@ -46,12 +46,13 @@ func (m *MonitorInstance) sendWhatsAppAlert(queryName string, rule AlertRule) er
 		"*Category:* %s\n"+
 		"*Message:* %s\n"+
 		"*Time:* %s\n"+
-		"*Value:* %s",
+		"*Value:* %s"+
+		"\n\n %s",
 		m.dbConfig.Instance,
 		queryName,
 		rule.Category,
 		rule.Message,
-		time.Now().Format("2006-01-02 15:04:05"), fmt.Sprintf("%v", rule.Value))
+		time.Now().Format("2006-01-02 15:04:05"), fmt.Sprintf("%v", rule.Value), rule.ResolutionNote)
 
 	// Create WhatsApp message
 	whatsappMsg := WhatsAppMessage{

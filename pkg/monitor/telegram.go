@@ -37,13 +37,15 @@ func (m *MonitorInstance) sendTelegramAlert(queryName string, rule AlertRule) er
 		"<b>Category:</b> %s\n"+
 		"<b>Message:</b> %s\n"+
 		"<b>Time:</b> %s\n"+
-		"<b>Value:</b> %s",
+		"<b>Value:</b> %s \n%s",
 		escapeHTML(m.dbConfig.Instance),
 		escapeHTML(queryName),
 		escapeHTML(rule.Category),
 		escapeHTML(rule.Message),
 		time.Now().Format("2006-01-02 15:04:05"),
-		escapeHTML(fmt.Sprintf("%v", rule.Value)))
+		escapeHTML(fmt.Sprintf("%v", rule.Value)),
+		escapeHTML(rule.ResolutionNote),
+	)
 
 	telegramMsg := TelegramMessage{
 		ChatID:    m.monitor.config.Alerts.Telegram.ChatID,

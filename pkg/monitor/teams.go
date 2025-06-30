@@ -68,7 +68,7 @@ func (m *MonitorInstance) sendTeamsAlert(queryName string, rule AlertRule) error
 	section := TeamsMessageSection{
 		ActivityTitle:    "🚨 Database Alert",
 		ActivitySubtitle: rule.Message,
-		Text:             fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s\n**Value:** %v", m.dbConfig.Instance, queryName, rule.Message, rule.Value),
+		Text:             fmt.Sprintf("**Instance:** %s\n**Query:** %s\n**Message:** %s\n**Value:** %v \n %s", m.dbConfig.Instance, queryName, rule.Message, rule.Value, rule.ResolutionNote),
 		Facts:            facts,
 	}
 
