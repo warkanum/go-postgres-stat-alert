@@ -20,9 +20,9 @@ This guide explains all configuration options for the PostgreSQL Database Monito
 
 The configuration file uses YAML format with the following top-level sections:
 
+
 ```yaml
-instance: "your-instance-name"
-database: { ... }
+databases: { ... }
 logging: { ... }
 alerts: { ... }
 queries: [ ... ]
@@ -32,13 +32,7 @@ queries: [ ... ]
 
 ## Instance Configuration
 
-### `instance` (string, optional)
-
-Identifies this monitor instance in logs and alerts.
-
-```yaml
-instance: "production-db-01"
-```
+Instance has been moved to databases in the newer versions.
 
 **Examples:**
 - `"production-primary"`
@@ -59,16 +53,17 @@ instance: "production-db-01"
 
 ### `database` (object, required)
 
-PostgreSQL connection parameters.
+PostgreSQL connection parameters. Multiple databases support added in newer versions. Key changed to databases.
 
 ```yaml
-database:
-  host: "localhost"           # Database server hostname/IP
-  port: 5432                 # PostgreSQL port (default: 5432)
-  username: "monitor_user"    # Database username
-  password: "secure_password" # Database password
-  database: "app_database"    # Database name to connect to
-  sslmode: "disable"         # SSL connection mode
+databases:
+  - instance: "production-db-01"
+    host: "localhost"           # Database server hostname/IP
+    port: 5432                 # PostgreSQL port (default: 5432)
+    username: "monitor_user"    # Database username
+    password: "secure_password" # Database password
+    database: "app_database"    # Database name to connect to
+    sslmode: "disable"         # SSL connection mode
 ```
 
 #### SSL Mode Options
@@ -84,24 +79,26 @@ database:
 
 **Production:**
 ```yaml
-database:
-  host: "db.company.com"
-  port: 5432
-  username: "monitor_readonly"
-  password: "complex_password_123!"
-  database: "production_db"
-  sslmode: "verify-full"
+databases:
+  - instance: "production-db-01"
+    host: "db.company.com"
+    port: 5432
+    username: "monitor_readonly"
+    password: "complex_password_123!"
+    database: "production_db"
+    sslmode: "verify-full"
 ```
 
 **Development:**
 ```yaml
-database:
-  host: "localhost"
-  port: 5432
-  username: "postgres"
-  password: "devpass"
-  database: "dev_db"
-  sslmode: "disable"
+databases:
+  - instance: "dev-db-01"
+    host: "localhost"
+    port: 5432
+    username: "postgres"
+    password: "devpass"
+    database: "dev_db"
+    sslmode: "disable"
 ```
 
 ---

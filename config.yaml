@@ -1,14 +1,13 @@
-# Instance name for identification in logs and alerts
-instance: "production-db-01"
 
 # Database connection configuration
-database:
-  host: "localhost"
-  port: 5432
-  username: "postgres"
-  password: "your_password"
-  database: "your_database"
-  sslmode: "disable"  # Options: disable, require, verify-ca, verify-full
+databases:
+  - instance: "production-db-01"
+    host: "localhost"
+    port: 5432
+    username: "postgres"
+    password: "your_password"
+    database: "your_database"
+    sslmode: "disable"  # Options: disable, require, verify-ca, verify-full
 
 # Logging configuration
 logging:
