@@ -274,3 +274,23 @@ queries:
         to: "emergency@company.com"
         channels: ["telegram", "teams", "webhook"]
         execute_action: "/emergency/restart_critical_service.sh --force --notify-oncall"  # Emergency restart
+
+
+  # Example: Sub transaction overflow detection
+  - name: "subxact_overflowed"
+    sql: |
+      SELECT count(a.pid)
+      FROM pg_stat_activity a
+      JOIN pg_stat_get_backend_idset() AS b(id)
+            ON pg_stat_get_backend_pid(b.id) = a.pid
+      CROSS JOIN LATERAL pg_stat_get_backend_subxact(b.id) s
+      where s.subxact_overflowed = true
+      ORDER BY s.subxact_count DESC;
+    interval: "30s"
+    alert_rules:
+      - condition: "gt"
+        value: 2
+        message: "WARNING: Sub transaction overflow detected"
+        category: "warning"
+        to: "emergency@company.com"
+        channels: ["telegram", "teams", "webhook"]
