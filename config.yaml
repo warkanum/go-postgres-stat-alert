@@ -285,7 +285,6 @@ queries:
             ON pg_stat_get_backend_pid(b.id) = a.pid
       CROSS JOIN LATERAL pg_stat_get_backend_subxact(b.id) s
       where s.subxact_overflowed = true
-      ORDER BY s.subxact_count DESC;
     interval: "30s"
     alert_rules:
       - condition: "gt"
